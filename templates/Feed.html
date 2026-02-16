@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shorts Viewer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100dvh;
+    font-family: Georgia, serif;
+  }
+
+  /* The phone-shaped container */
+  .viewer {
+    width: 360px;
+    height: 640px;
+    overflow: hidden;
+    position: relative;
+    border-radius: 24px;
+    background: #000;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    cursor: grab;
+  }
+  .viewer:active { cursor: grabbing; }
+
+  /* The strip of all slides stacked vertically */
+  .strip {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Each individual slide */
+  .slide {
+    width: 360px;
+    height: 640px;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 36px;
+  }
+
+  /* ── TEXT SLIDE ── */
+  .slide-text { background: #0d0d14; }
+
+  .slide-text .quote {
+    font-style: italic;
+    font-size: 1.35rem;
+    line-height: 1.6;
+    color: #f0ede8;
+    text-align: left;
+  }
+
+  .slide-text .author {
+    margin-top: 24px;
+    font-family: sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  /* ── IMAGE SLIDE ── */
+  .slide-image { padding: 0; }
+
+  .slide-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .slide-image .overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 60px 28px 80px;
+    background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+  }
+
+  .slide-image .title {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #fff;
+  }
+
+  .slide-image .subtitle {
+    margin-top: 6px;
+    font-family: sans-serif;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* ── LIKE BUTTON (bottom-right) ── */
+  .like-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 70px;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-family: sans-serif;
+    font-size: 0.7rem;
+    user-select: none;
+  }
+
+  .like-btn .heart {
+    font-size: 1.6rem;
+    transition: transform 0.15s;
+  }
+
+  .like-btn.liked .heart { color: #ff3b5c; }
+  .like-btn:active .heart { transform: scale(1.35); }
+
+  /* ── SLIDE COUNTER (top-right) ── */
+  .counter {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-family: sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.06em;
+  }
+  #randomNumber{
+    color: white;
+    font-size-adjust: 50px;
+    text-align: center;
+    margin-bottom: 240px;
+  }
+html, body {
+    overscroll-behavior-y: contain; /* Or 'none' to remove bounce effect */
+}
+
+  body{
+    color:white;
+  }
+</style>
+</head>
+<body>
+
+<div class="viewer" id="viewer">
+  <div class="strip" id="strip">
+
+<!-- this is where the song slides show up -->
+  </div>
+</div>
+
+<script>
+  const viewer = document.getElementById('viewer');
+  const strip  = document.getElementById('strip');
+
+  const PRELOAD_INCREMENT = 5;
+  const SLIDE_HEIGHT = 640;
+  var TOTAL_SLIDES = 1;
+  let current  = 0;   // which slide we're on
+  let startY   = 0;   // where the drag began
+  let dragDelta = 0;  // how far we've dragged so far
+
+  // Move the strip so the current slide is visible
+  function moveTo(index, animate) {
+    strip.style.transition = animate
+      ? 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
+      : 'none';
+    strip.style.transform = `translateY(${-index * SLIDE_HEIGHT + dragDelta}px)`;
+  }
+
+  // ── DRAG / SWIPE ──────────────────────────────────────────────────────────
+
+ // viewer.addEventListener('mousedown',  e => dragStart(e.clientY));
+  viewer.addEventListener('touchstart', e => dragStart(e.touches[0].clientY), { passive: true });
+
+ // window.addEventListener('mousemove',  e => dragMove(e.clientY));
+  window.addEventListener('touchmove',  e => dragMove(e.touches[0].clientY), { passive: true });
+
+  //window.addEventListener('mouseup',  dragEnd);
+  window.addEventListener('touchend', dragEnd);
+
+function randomIntFromInterval(min, max) { // min and max included 
+  return Math.floor(Math.random() * (max - min + 1) + min)
+}
+
+function preloadImages(imageUrls) {
+  const images = [];
+  console.log(`preloaded: ${imageUrls}`);
+  imageUrls.forEach(url => {
+    const img = new Image();
+    img.src = url;
+    images.push(img);
+  });
+  
+  return images;
+}
+
+function generateRandomImageUrls(indicesLength){
+  //generate an array of random image urls
+  urls = [];
+  for(let i = 0; i < indicesLength; i++){
+    const randomNumber = randomIntFromInterval(11,590);
+    const url = `/img/songscroller${randomNumber}.jpg`;
+    urls[i] = url;
+  }
+  return urls;
+}
+var RANDOM_IMAGES = preloadImages(generateRandomImageUrls(PRELOAD_INCREMENT));
+
+var RANDOM_IMAGE_INDEX = 0;
+
+var last_total_slides = 0;
+
+  function handleHymnalPages(){
+   
+      const randomImageElement = `
+       <div class="slide slide-image"><img alt="${current}" class="rImage" id='rImage-${current}'>
+      <div class="overlay"><p class="title">Golden Hour</p>
+      <h2 id='Isrc${current}' class='Isrc'></h2>
+        <p class="subtitle">song number ${RANDOM_IMAGES[last_total_slides]}</p></div>
+      <button class="like-btn" onclick="toggleLike(this)">
+        <span class="heart">♥</span><span class="count">67.6k</span></button>
+      <span class="counter">6 / 7</span></div>`;
+        
+        
+        let div = document.getElementById("strip");
+        div.insertAdjacentHTML("beforeend",randomImageElement);
+        let srcView = document.getElementById(`Isrc${current}`);
+        let current_image = document.getElementById(`rImage-${current}`);
+
+        
+
+        let imageURL = RANDOM_IMAGES[last_total_slides];
+        console.log(imageURL.src);
+        console.log(`image url: ${imageURL}\ncurrent slide no:${current}\n`);
+
+        current_image.src = imageURL.src;
+
+        srcView.textContent = imageURL.src;
+        last_total_slides += 1;
+        TOTAL_SLIDES += 1
+
+        console.log(last_total_slides+PRELOAD_INCREMENT);
+        console.log(TOTAL_SLIDES);
+        if(last_total_slides === PRELOAD_INCREMENT){
+          console.log("preload moment reached");
+          const urls = generateRandomImageUrls(PRELOAD_INCREMENT);
+          RANDOM_IMAGES = preloadImages(urls);  //that array is filled with image objects, not strings btw
+          console.log(RANDOM_IMAGES);
+          last_total_slides = 0;
+        }
+        
+  }
+
+handleHymnalPages();  //set the first slide so it's not blank
+
+  function dragStart(y) {
+    startY    = y;
+    dragDelta = 0;
+  }
+
+
+  function dragMove(y) {
+    if (startY === null) return;
+    dragDelta = (y - startY) * 0.6; // 0.6 = resistance factor
+
+    // Rubber-band at the edges
+    if (current === 0              && dragDelta > 0) dragDelta *= 0.2;
+    if (current === TOTAL_SLIDES-1 && dragDelta < 0) dragDelta *= 0.2;
+    if(current >= 3){
+        
+        
+  }
+    moveTo(current, false); // no animation while dragging
+  }
+
+  function dragEnd() {
+    if (startY === null) return;
+
+    if      (dragDelta < -60 && current < TOTAL_SLIDES - 1) current++;
+    else if (dragDelta >  60 && current > 0)                current--;
+
+    handleHymnalPages();
+    dragDelta = 0;
+    startY    = null;
+    moveTo(current, true); // animate to snapped position
+  
+  }
+
+  // ── KEYBOARD & SCROLL ────────────────────────────────────────────────────
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' && current < TOTAL_SLIDES - 1) {
+      handleHymnalPages();
+      current++;
+      moveTo(current, true); 
+    }
+    if (e.key === 'ArrowUp'   && current > 0) {
+       current--; 
+       moveTo(current, true); 
+      }
+  });
+/*
+  viewer.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (e.deltaY > 30 && current < TOTAL_SLIDES - 1) {
+      handleHymnalPages();
+       current++; 
+       moveTo(current, true); 
+      }
+    if (e.deltaY < -30 && current > 0) {
+       current--; 
+       moveTo(current, true); 
+    }
+  }, 
+  { 
+    passive: false 
+  });
+*/
+  // ── LIKE BUTTON ──────────────────────────────────────────────────────────
+
+  function toggleLike(btn) {
+    btn.classList.toggle('liked');
+  }
+</script>
+
+</body>
+</html>
