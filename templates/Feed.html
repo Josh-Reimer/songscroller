@@ -170,7 +170,7 @@ html, body {
 
   const PRELOAD_INCREMENT = 5;
   const SLIDE_HEIGHT = 670;
-  var TOTAL_SLIDES = 1;
+  var TOTAL_SLIDES = 0;
   let current  = 0;   // which slide we're on
   let startY   = 0;   // where the drag began
   let dragDelta = 0;  // how far we've dragged so far
@@ -210,11 +210,17 @@ function preloadImages(imageUrls) {
   return images;
 }
 
+const VALID_INDICES = JSON.parse('{{ valid_indices | tojson | safe }}');
+
 function generateRandomImageUrls(indicesLength){
-  //generate an array of random image urls
   urls = [];
   for(let i = 0; i < indicesLength; i++){
-    const randomNumber = randomIntFromInterval(11,590);
+    let randomNumber;
+    if (VALID_INDICES && VALID_INDICES.length > 0) {
+      randomNumber = VALID_INDICES[Math.floor(Math.random() * VALID_INDICES.length)];
+    } else {
+      randomNumber = randomIntFromInterval(11,590);
+    }
     const url = `/img/songscroller${randomNumber}.jpg`;
     urls[i] = url;
   }
@@ -227,33 +233,29 @@ var RANDOM_IMAGE_INDEX = 0;
 var last_total_slides = 0;
 
   function handleHymnalPages(){
-   
+      const slideIndex = TOTAL_SLIDES;
       const randomImageElement = `
-       <div class="slide slide-image"><img alt="${current}" class="rImage" id='rImage-${current}'>
+       <div class="slide slide-image"><img alt="${slideIndex}" class="rImage" id='rImage-${slideIndex}'>
       <div class="overlay"><p class="title"></p>
-      <h2 id='Isrc${current}' class='Isrc'></h2>
+      <h2 id='Isrc${slideIndex}' class='Isrc'></h2>
         <p class="subtitle"></p></div>
       <button class="like-btn" onclick="toggleLike(this)">
         <span class="heart">♥</span><span class="count">67.6k</span></button>
-      <span class="counter">6 / 7</span></div>`;
-        
+      <span class="counter">${slideIndex}</span></div>`;
         
         let div = document.getElementById("strip");
         div.insertAdjacentHTML("beforeend",randomImageElement);
-        let srcView = document.getElementById(`Isrc${current}`);
-        let current_image = document.getElementById(`rImage-${current}`);
-
-        
+        let srcView = document.getElementById(`Isrc${slideIndex}`);
+        let current_image = document.getElementById(`rImage-${slideIndex}`);
 
         let imageURL = RANDOM_IMAGES[last_total_slides];
         console.log(imageURL.src);
-        console.log(`image url: ${imageURL}\ncurrent slide no:${current}\n`);
+        console.log(`image url: ${imageURL}\ncurrent slide no:${slideIndex}\n`);
 
         current_image.src = imageURL.src;
 
-        //srcView.textContent = imageURL.src;
         last_total_slides += 1;
-        TOTAL_SLIDES += 1
+        TOTAL_SLIDES += 1;
 
         console.log(last_total_slides+PRELOAD_INCREMENT);
         console.log(TOTAL_SLIDES);
@@ -264,10 +266,10 @@ var last_total_slides = 0;
           console.log(RANDOM_IMAGES);
           last_total_slides = 0;
         }
-        
   }
 
 handleHymnalPages();  //set the first slide so it's not blank
+handleHymnalPages();  //load a second slide to allow scrolling
 
   function dragStart(y) {
     startY    = y;
@@ -295,19 +297,22 @@ handleHymnalPages();  //set the first slide so it's not blank
     if      (dragDelta < -60 && current < TOTAL_SLIDES - 1) current++;
     else if (dragDelta >  60 && current > 0)                current--;
 
-    handleHymnalPages();
+    if (current === TOTAL_SLIDES - 1) {
+        handleHymnalPages();
+    }
     dragDelta = 0;
     startY    = null;
     moveTo(current, true); // animate to snapped position
-  
   }
 
   // ── KEYBOARD & SCROLL ────────────────────────────────────────────────────
 
   window.addEventListener('keydown', e => {
     if (e.key === 'ArrowDown' && current < TOTAL_SLIDES - 1) {
-      handleHymnalPages();
       current++;
+      if (current === TOTAL_SLIDES - 1) {
+          handleHymnalPages();
+      }
       moveTo(current, true); 
     }
     if (e.key === 'ArrowUp'   && current > 0) {
