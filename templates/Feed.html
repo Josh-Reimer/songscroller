@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shorts Viewer</title>
+<title>Song Scroller</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#111111">
 <link rel="apple-touch-icon" href="/icon.svg">
@@ -118,7 +118,7 @@
   .bookmark-btn {
     position: absolute;
     right: 16px;
-    bottom: 70px;
+    bottom: 120px;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -157,7 +157,7 @@
   .share-btn {
     position: absolute;
     right: 16px;
-    bottom: 135px;
+    bottom: 185px;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -320,6 +320,11 @@ html, body {
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
 </button>
 
+<!-- Install Prompt Banner -->
+<div id="install-banner" style="display:none; position:fixed; top:24px; left:50%; transform:translateX(-50%); z-index:9999; background:#ffcc00; color:#000; padding:12px 24px; border-radius:24px; font-weight:bold; cursor:pointer; font-family:sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+  Install App 📲
+</div>
+
 <div class="viewer" id="viewer">
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
@@ -342,7 +347,7 @@ html, body {
   const viewer = document.getElementById('viewer');
   const strip  = document.getElementById('strip');
 
-  const PRELOAD_INCREMENT = 5;
+  const PRELOAD_QUEUE_SIZE = 15;
   let SLIDE_HEIGHT = viewer.clientHeight;
   var TOTAL_SLIDES = 0;
   let current  = 0;   // which slide we're on
@@ -387,7 +392,7 @@ function preloadImages(imageUrls) {
 const VALID_INDICES = JSON.parse('{{ valid_indices | tojson | safe }}');
 
 function generateRandomImageUrls(indicesLength){
-  urls = [];
+  let urls = [];
   for(let i = 0; i < indicesLength; i++){
     let randomNumber;
     if (VALID_INDICES && VALID_INDICES.length > 0) {
@@ -395,21 +400,22 @@ function generateRandomImageUrls(indicesLength){
     } else {
       randomNumber = randomIntFromInterval(11,590);
     }
-    const url = `/img/songscroller${randomNumber}.jpg`;
-    urls[i] = url;
+    urls.push(`/img/songscroller${randomNumber}.jpg`);
   }
   return urls;
 }
-var RANDOM_IMAGES = preloadImages(generateRandomImageUrls(PRELOAD_INCREMENT));
-
-var RANDOM_IMAGE_INDEX = 0;
-
-var last_total_slides = 0;
+var RANDOM_IMAGES = preloadImages(generateRandomImageUrls(PRELOAD_QUEUE_SIZE));
 
   function handleHymnalPages(){
       const slideIndex = TOTAL_SLIDES;
-      let imageURL = RANDOM_IMAGES[last_total_slides];
+      
+      // Take the first image off the preloaded queue
+      let imageURL = RANDOM_IMAGES.shift();
       let imgUrlStr = imageURL.src;
+      
+      // Start loading a new image and add it to the back of the queue
+      let newPreloaded = preloadImages(generateRandomImageUrls(1));
+      RANDOM_IMAGES.push(newPreloaded[0]);
       
       let bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
       let bookmarkClass = bookmarkedList.includes(imgUrlStr) ? 'bookmarked' : '';
@@ -432,22 +438,8 @@ var last_total_slides = 0;
         let srcView = document.getElementById(`Isrc${slideIndex}`);
         let current_image = document.getElementById(`rImage-${slideIndex}`);
 
-        console.log(`image url: ${imgUrlStr}\ncurrent slide no:${slideIndex}\n`);
-
         current_image.src = imgUrlStr;
-
-        last_total_slides += 1;
         TOTAL_SLIDES += 1;
-
-        console.log(last_total_slides+PRELOAD_INCREMENT);
-        console.log(TOTAL_SLIDES);
-        if(last_total_slides === PRELOAD_INCREMENT){
-          console.log("preload moment reached");
-          const urls = generateRandomImageUrls(PRELOAD_INCREMENT);
-          RANDOM_IMAGES = preloadImages(urls);  //that array is filled with image objects, not strings btw
-          console.log(RANDOM_IMAGES);
-          last_total_slides = 0;
-        }
   }
 
 handleHymnalPages();  //set the first slide so it's not blank
@@ -640,6 +632,39 @@ handleHymnalPages();  //load a second slide to allow scrolling
         .catch(err => console.log('SW error:', err));
     });
   }
+
+  // Auto-Install Prompt Logic
+  let deferredPrompt;
+  const installBanner = document.getElementById('install-banner');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    installBanner.style.display = 'block';
+  });
+
+  installBanner.addEventListener('click', async () => {
+    // Hide the app provided install promotion
+    installBanner.style.display = 'none';
+    // Show the install prompt
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User ${outcome} the install prompt`);
+      // We've used the prompt, and can't use it again, throw it away
+      deferredPrompt = null;
+    }
+  });
+
+  window.addEventListener('appinstalled', () => {
+    // Hide the install button if the app is successfully installed
+    installBanner.style.display = 'none';
+    console.log('PWA was installed');
+  });
 </script>
 </body>
 </html>
