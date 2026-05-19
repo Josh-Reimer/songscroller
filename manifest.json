@@ -1,0 +1,16 @@
+{
+  "name": "Song Scroller",
+  "short_name": "SongScroller",
+  "description": "Doom scroll the Christian Hymnal song book",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}

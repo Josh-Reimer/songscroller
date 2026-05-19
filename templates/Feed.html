@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shorts Viewer</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#111111">
+<link rel="apple-touch-icon" href="/icon.svg">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,8 +21,9 @@
 
   /* The phone-shaped container */
   .viewer {
-    width: 390px;
-    height: 670px;
+    width: 100%;
+    max-width: 450px;
+    height: 100dvh;
     overflow: hidden;
     position: relative;
     border-radius: 24px;
@@ -28,6 +32,13 @@
     cursor: grab;
   }
   .viewer:active { cursor: grabbing; }
+  
+  @media (max-width: 450px) {
+    .viewer {
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
 
   /* The strip of all slides stacked vertically */
   .strip {
@@ -38,8 +49,8 @@
 
   /* Each individual slide */
   .slide {
-    width: 390px;
-    height: 670px;
+    width: 100%;
+    height: 100dvh;
     flex-shrink: 0;
     position: relative;
     display: flex;
@@ -103,8 +114,8 @@
     color: rgba(255,255,255,0.6);
   }
 
-  /* ── LIKE BUTTON (bottom-right) ── */
-  .like-btn {
+  /* ── BOOKMARK BUTTON (bottom-right) ── */
+  .bookmark-btn {
     position: absolute;
     right: 16px;
     bottom: 70px;
@@ -121,13 +132,22 @@
     user-select: none;
   }
 
-  .like-btn .heart {
-    font-size: 1.6rem;
+  .bookmark-btn .bookmark-icon {
+    width: 32px;
+    height: 32px;
     transition: transform 0.15s;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
-  .like-btn.liked .heart { color: #ff3b5c; }
-  .like-btn:active .heart { transform: scale(1.35); }
+  .bookmark-btn.bookmarked .bookmark-icon {
+    fill: #ffcc00;
+    stroke: #ffcc00;
+  }
+  .bookmark-btn:active .bookmark-icon { transform: scale(1.35); }
 
   /* ── SLIDE COUNTER (top-right) ── */
   .counter {
@@ -153,11 +173,127 @@ html, body {
   body{
     color:white;
   }
+
+  /* ── MENU BUTTON ── */
+  .menu-btn {
+    position: fixed;
+    top: 24px;
+    left: calc(max(24px, 50% - 225px - 70px));
+    z-index: 100;
+    background: rgba(0,0,0,0.4);
+    border: none;
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .menu-btn svg { width: 24px; height: 24px; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 85%;
+    max-width: 320px;
+    height: 100%;
+    background: rgba(20, 20, 25, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 5px 0 30px rgba(0,0,0,0.5);
+    border-right: 1px solid rgba(255,255,255,0.1);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .sidebar-header h2 {
+    font-size: 1.2rem;
+    font-family: sans-serif;
+    margin: 0;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-content: start;
+  }
+  .bookmark-item {
+    width: 100%;
+    aspect-ratio: 2/3;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .bookmark-item:hover {
+    border-color: #ffcc00;
+  }
+  .bookmark-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .sidebar-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #888;
+    font-family: sans-serif;
+    font-size: 0.9rem;
+    padding-top: 40px;
+  }
 </style>
 </head>
 <body>
 
+<!-- Sidebar Toggle Button -->
+<button class="menu-btn" onclick="openSidebar()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+</button>
+
 <div class="viewer" id="viewer">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>Bookmarks</h2>
+      <button class="close-btn" onclick="closeSidebar()">&times;</button>
+    </div>
+    <div class="sidebar-content" id="sidebar-content">
+      <!-- Bookmark items will be injected here -->
+    </div>
+  </div>
+
   <div class="strip" id="strip">
 
 <!-- this is where the song slides show up -->
@@ -169,7 +305,7 @@ html, body {
   const strip  = document.getElementById('strip');
 
   const PRELOAD_INCREMENT = 5;
-  const SLIDE_HEIGHT = 670;
+  let SLIDE_HEIGHT = viewer.clientHeight;
   var TOTAL_SLIDES = 0;
   let current  = 0;   // which slide we're on
   let startY   = 0;   // where the drag began
@@ -234,13 +370,20 @@ var last_total_slides = 0;
 
   function handleHymnalPages(){
       const slideIndex = TOTAL_SLIDES;
+      let imageURL = RANDOM_IMAGES[last_total_slides];
+      let imgUrlStr = imageURL.src;
+      
+      let bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
+      let bookmarkClass = bookmarkedList.includes(imgUrlStr) ? 'bookmarked' : '';
+
       const randomImageElement = `
        <div class="slide slide-image"><img alt="${slideIndex}" class="rImage" id='rImage-${slideIndex}'>
       <div class="overlay"><p class="title"></p>
       <h2 id='Isrc${slideIndex}' class='Isrc'></h2>
         <p class="subtitle"></p></div>
-      <button class="like-btn" onclick="toggleLike(this)">
-        <span class="heart">♥</span><span class="count">67.6k</span></button>
+      <button class="bookmark-btn ${bookmarkClass}" data-url="${imgUrlStr}" onclick="toggleBookmark(this)">
+        <svg class="bookmark-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+      </button>
       <span class="counter">${slideIndex}</span></div>`;
         
         let div = document.getElementById("strip");
@@ -248,11 +391,9 @@ var last_total_slides = 0;
         let srcView = document.getElementById(`Isrc${slideIndex}`);
         let current_image = document.getElementById(`rImage-${slideIndex}`);
 
-        let imageURL = RANDOM_IMAGES[last_total_slides];
-        console.log(imageURL.src);
-        console.log(`image url: ${imageURL}\ncurrent slide no:${slideIndex}\n`);
+        console.log(`image url: ${imgUrlStr}\ncurrent slide no:${slideIndex}\n`);
 
-        current_image.src = imageURL.src;
+        current_image.src = imgUrlStr;
 
         last_total_slides += 1;
         TOTAL_SLIDES += 1;
@@ -305,6 +446,11 @@ handleHymnalPages();  //load a second slide to allow scrolling
     moveTo(current, true); // animate to snapped position
   }
 
+  window.addEventListener('resize', () => {
+    SLIDE_HEIGHT = viewer.clientHeight;
+    moveTo(current, false);
+  });
+
   // ── KEYBOARD & SCROLL ────────────────────────────────────────────────────
 
   window.addEventListener('keydown', e => {
@@ -337,12 +483,93 @@ handleHymnalPages();  //load a second slide to allow scrolling
     passive: false 
   });
 */
-  // ── LIKE BUTTON ──────────────────────────────────────────────────────────
+  // ── BOOKMARK BUTTON ──────────────────────────────────────────────────────
 
-  function toggleLike(btn) {
-    btn.classList.toggle('liked');
+  function toggleBookmark(btn) {
+    btn.classList.toggle('bookmarked');
+    let url = btn.getAttribute('data-url');
+    let bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
+    
+    if (btn.classList.contains('bookmarked')) {
+      if (!bookmarkedList.includes(url)) {
+        bookmarkedList.push(url);
+      }
+    } else {
+      bookmarkedList = bookmarkedList.filter(u => u !== url);
+    }
+    
+    localStorage.setItem('bookmarked_hymns', JSON.stringify(bookmarkedList));
+  }
+
+  // ── SIDEBAR LOGIC ────────────────────────────────────────────────────────
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    renderBookmarks();
+  }
+
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+  }
+
+  function renderBookmarks() {
+    const container = document.getElementById('sidebar-content');
+    container.innerHTML = '';
+    let bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
+    
+    if (bookmarkedList.length === 0) {
+      container.innerHTML = '<div class="sidebar-empty">No bookmarks yet.</div>';
+      return;
+    }
+    
+    bookmarkedList.forEach(url => {
+      const item = document.createElement('div');
+      item.className = 'bookmark-item';
+      item.onclick = () => jumpToBookmark(url);
+      item.innerHTML = `<img src="${url}" loading="lazy">`;
+      container.appendChild(item);
+    });
+  }
+
+  function jumpToBookmark(url) {
+    closeSidebar();
+    
+    // Inject the bookmarked hymn at the end of the strip as the next slide
+    const slideIndex = TOTAL_SLIDES;
+    let imgUrlStr = url;
+    let bookmarkClass = 'bookmarked'; // It is guaranteed to be bookmarked
+
+    const randomImageElement = `
+     <div class="slide slide-image"><img alt="${slideIndex}" class="rImage" id='rImage-${slideIndex}' src="${imgUrlStr}">
+    <div class="overlay"><p class="title"></p>
+    <h2 id='Isrc${slideIndex}' class='Isrc'></h2>
+      <p class="subtitle"></p></div>
+    <button class="bookmark-btn ${bookmarkClass}" data-url="${imgUrlStr}" onclick="toggleBookmark(this)">
+      <svg class="bookmark-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+    </button>
+    <span class="counter">${slideIndex}</span></div>`;
+      
+    let div = document.getElementById("strip");
+    div.insertAdjacentHTML("beforeend", randomImageElement);
+    
+    TOTAL_SLIDES += 1;
+    
+    // Smoothly scroll down to the newly injected slide
+    current = slideIndex;
+    moveTo(current, true);
+
+    // Buffer the next slide immediately so the user can continue scrolling down natively
+    handleHymnalPages();
   }
 </script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered'))
+        .catch(err => console.log('SW error:', err));
+    });
+  }
+</script>
 </body>
 </html>

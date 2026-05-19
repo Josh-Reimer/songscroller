@@ -19,5 +19,17 @@ def index():
 def serve_image(filename):
     return send_from_directory("img",filename)
 
+@app.route("/manifest.json")
+def serve_manifest():
+    return send_from_directory(".", "manifest.json")
+
+@app.route("/sw.js")
+def serve_sw():
+    return send_from_directory(".", "sw.js")
+
+@app.route("/icon.svg")
+def serve_icon():
+    return send_from_directory(".", "icon.svg")
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5023)
