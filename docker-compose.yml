@@ -1,0 +1,14 @@
+services:
+  songscroller:
+    build: .
+    ports:
+      - "5023:5023"
+    volumes:
+      # Persist generated images across container restarts
+      - ./img:/app/img
+      # Mount PDF so the container doesn't need to re-download it
+      # Comment this out if the PDF isn't present on the host
+      - ./christianhymnalc00chur.pdf:/app/christianhymnalc00chur.pdf:ro
+    environment:
+      GUNICORN_WORKERS: "4"
+    restart: unless-stopped

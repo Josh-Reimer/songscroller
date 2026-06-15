@@ -1,0 +1,7 @@
+img/
+.git/
+.DS_Store
+__pycache__/
+*.pyc
+bug-report.md
+readme.md

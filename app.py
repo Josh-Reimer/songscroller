@@ -2,6 +2,19 @@ import os
 import re
 from flask import Flask, render_template, send_from_directory, abort
 
+def _images_ready():
+    if not os.path.exists("img"):
+        return False
+    return any(
+        f.startswith("songscroller") and f.endswith(".jpg")
+        for f in os.listdir("img")
+    )
+
+def ensure_images():
+    if not _images_ready():
+        import download_and_convert
+        download_and_convert.main()
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -35,4 +48,5 @@ def serve_icon():
     return send_from_directory(".", "icon.svg")
 
 if __name__ == "__main__":
+    ensure_images()
     app.run(debug=True, host="0.0.0.0", port=5023)
