@@ -1,6 +1,5 @@
 const CACHE_NAME = 'songscroller-v1';
 const ASSETS_TO_CACHE = [
-  '/',
   '/manifest.json',
   '/icon.svg'
 ];

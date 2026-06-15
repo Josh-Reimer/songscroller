@@ -350,8 +350,9 @@ html, body {
   const PRELOAD_QUEUE_SIZE = 15;
   let SLIDE_HEIGHT = viewer.clientHeight;
   var TOTAL_SLIDES = 0;
+  let removedCount = 0;
   let current  = 0;   // which slide we're on
-  let startY   = 0;   // where the drag began
+  let startY   = null; // where the drag began
   let dragDelta = 0;  // how far we've dragged so far
 
   // Move the strip so the current slide is visible
@@ -359,7 +360,14 @@ html, body {
     strip.style.transition = animate
       ? 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
       : 'none';
-    strip.style.transform = `translateY(${-index * SLIDE_HEIGHT + dragDelta}px)`;
+    strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
+  }
+
+  function trimOldSlides() {
+    while (removedCount < current - 2) {
+      strip.removeChild(strip.firstElementChild);
+      removedCount++;
+    }
   }
 
   // ── DRAG / SWIPE ──────────────────────────────────────────────────────────
@@ -406,40 +414,54 @@ function generateRandomImageUrls(indicesLength){
 }
 var RANDOM_IMAGES = preloadImages(generateRandomImageUrls(PRELOAD_QUEUE_SIZE));
 
+  function createSlide(imgUrl, slideIndex, bookmarkClass) {
+    const slide = document.createElement('div');
+    slide.className = 'slide slide-image';
+
+    const img = document.createElement('img');
+    img.alt = String(slideIndex);
+    img.className = 'rImage';
+    img.id = `rImage-${slideIndex}`;
+    img.src = imgUrl;
+    slide.appendChild(img);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = '<p class="title"></p><p class="subtitle"></p>';
+    slide.appendChild(overlay);
+
+    const bookmarkBtn = document.createElement('button');
+    bookmarkBtn.className = 'bookmark-btn' + (bookmarkClass ? ' ' + bookmarkClass : '');
+    bookmarkBtn.dataset.url = imgUrl;
+    bookmarkBtn.onclick = function() { toggleBookmark(this); };
+    bookmarkBtn.innerHTML = '<svg class="bookmark-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
+    slide.appendChild(bookmarkBtn);
+
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'share-btn';
+    shareBtn.dataset.url = imgUrl;
+    shareBtn.onclick = function() { shareSong(this); };
+    shareBtn.innerHTML = '<svg class="share-icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>';
+    slide.appendChild(shareBtn);
+
+    const counter = document.createElement('span');
+    counter.className = 'counter';
+    counter.textContent = String(slideIndex);
+    slide.appendChild(counter);
+
+    return slide;
+  }
+
   function handleHymnalPages(){
       const slideIndex = TOTAL_SLIDES;
-      
-      // Take the first image off the preloaded queue
-      let imageURL = RANDOM_IMAGES.shift();
-      let imgUrlStr = imageURL.src;
-      
-      // Start loading a new image and add it to the back of the queue
-      let newPreloaded = preloadImages(generateRandomImageUrls(1));
-      RANDOM_IMAGES.push(newPreloaded[0]);
-      
-      let bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
-      let bookmarkClass = bookmarkedList.includes(imgUrlStr) ? 'bookmarked' : '';
+      const imgUrlStr = RANDOM_IMAGES.shift().src;
+      RANDOM_IMAGES.push(preloadImages(generateRandomImageUrls(1))[0]);
 
-      const randomImageElement = `
-       <div class="slide slide-image"><img alt="${slideIndex}" class="rImage" id='rImage-${slideIndex}'>
-      <div class="overlay"><p class="title"></p>
-      <h2 id='Isrc${slideIndex}' class='Isrc'></h2>
-        <p class="subtitle"></p></div>
-      <button class="bookmark-btn ${bookmarkClass}" data-url="${imgUrlStr}" onclick="toggleBookmark(this)">
-        <svg class="bookmark-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-      </button>
-      <button class="share-btn" data-url="${imgUrlStr}" onclick="shareSong(this)">
-        <svg class="share-icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-      </button>
-      <span class="counter">${slideIndex}</span></div>`;
-        
-        let div = document.getElementById("strip");
-        div.insertAdjacentHTML("beforeend",randomImageElement);
-        let srcView = document.getElementById(`Isrc${slideIndex}`);
-        let current_image = document.getElementById(`rImage-${slideIndex}`);
+      const bookmarkedList = JSON.parse(localStorage.getItem('bookmarked_hymns') || '[]');
+      const bookmarkClass = bookmarkedList.includes(imgUrlStr) ? 'bookmarked' : '';
 
-        current_image.src = imgUrlStr;
-        TOTAL_SLIDES += 1;
+      strip.appendChild(createSlide(imgUrlStr, slideIndex, bookmarkClass));
+      TOTAL_SLIDES += 1;
   }
 
 handleHymnalPages();  //set the first slide so it's not blank
@@ -456,7 +478,7 @@ handleHymnalPages();  //load a second slide to allow scrolling
     dragDelta = (y - startY) * 0.6; // 0.6 = resistance factor
 
     // Rubber-band at the edges
-    if (current === 0              && dragDelta > 0) dragDelta *= 0.2;
+    if (current === removedCount   && dragDelta > 0) dragDelta *= 0.2;
     if (current === TOTAL_SLIDES-1 && dragDelta < 0) dragDelta *= 0.2;
     if(current >= 3){
         
@@ -469,11 +491,12 @@ handleHymnalPages();  //load a second slide to allow scrolling
     if (startY === null) return;
 
     if      (dragDelta < -60 && current < TOTAL_SLIDES - 1) current++;
-    else if (dragDelta >  60 && current > 0)                current--;
+    else if (dragDelta >  60 && current > removedCount)     current--;
 
     if (current === TOTAL_SLIDES - 1) {
         handleHymnalPages();
     }
+    trimOldSlides();
     dragDelta = 0;
     startY    = null;
     moveTo(current, true); // animate to snapped position
@@ -492,9 +515,10 @@ handleHymnalPages();  //load a second slide to allow scrolling
       if (current === TOTAL_SLIDES - 1) {
           handleHymnalPages();
       }
-      moveTo(current, true); 
+      trimOldSlides();
+      moveTo(current, true);
     }
-    if (e.key === 'ArrowUp'   && current > 0) {
+    if (e.key === 'ArrowUp'   && current > removedCount) {
        current--; 
        moveTo(current, true); 
       }
@@ -555,6 +579,7 @@ handleHymnalPages();  //load a second slide to allow scrolling
         window.open(url, '_blank');
       }
     } catch (error) {
+      if (error.name === 'AbortError') return;
       console.error('Error sharing:', error);
       alert('Could not share the song.');
     }
@@ -585,42 +610,23 @@ handleHymnalPages();  //load a second slide to allow scrolling
       const item = document.createElement('div');
       item.className = 'bookmark-item';
       item.onclick = () => jumpToBookmark(url);
-      item.innerHTML = `<img src="${url}" loading="lazy">`;
+      const img = document.createElement('img');
+      img.src = url;
+      img.loading = 'lazy';
+      item.appendChild(img);
       container.appendChild(item);
     });
   }
 
   function jumpToBookmark(url) {
     closeSidebar();
-    
-    // Inject the bookmarked hymn at the end of the strip as the next slide
-    const slideIndex = TOTAL_SLIDES;
-    let imgUrlStr = url;
-    let bookmarkClass = 'bookmarked'; // It is guaranteed to be bookmarked
 
-    const randomImageElement = `
-     <div class="slide slide-image"><img alt="${slideIndex}" class="rImage" id='rImage-${slideIndex}' src="${imgUrlStr}">
-    <div class="overlay"><p class="title"></p>
-    <h2 id='Isrc${slideIndex}' class='Isrc'></h2>
-      <p class="subtitle"></p></div>
-    <button class="bookmark-btn ${bookmarkClass}" data-url="${imgUrlStr}" onclick="toggleBookmark(this)">
-      <svg class="bookmark-icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-    </button>
-    <button class="share-btn" data-url="${imgUrlStr}" onclick="shareSong(this)">
-      <svg class="share-icon" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-    </button>
-    <span class="counter">${slideIndex}</span></div>`;
-      
-    let div = document.getElementById("strip");
-    div.insertAdjacentHTML("beforeend", randomImageElement);
-    
+    const slideIndex = TOTAL_SLIDES;
+    strip.appendChild(createSlide(url, slideIndex, 'bookmarked'));
     TOTAL_SLIDES += 1;
-    
-    // Smoothly scroll down to the newly injected slide
+
     current = slideIndex;
     moveTo(current, true);
-
-    // Buffer the next slide immediately so the user can continue scrolling down natively
     handleHymnalPages();
   }
 </script>

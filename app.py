@@ -1,5 +1,6 @@
 import os
-from flask import Flask,render_template,send_from_directory
+import re
+from flask import Flask, render_template, send_from_directory, abort
 
 app = Flask(__name__)
 
@@ -17,7 +18,9 @@ def index():
 
 @app.route("/img/<filename>")
 def serve_image(filename):
-    return send_from_directory("img",filename)
+    if not re.fullmatch(r'songscroller\d+\.jpg', filename):
+        abort(404)
+    return send_from_directory("img", filename)
 
 @app.route("/manifest.json")
 def serve_manifest():
