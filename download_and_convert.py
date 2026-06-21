@@ -1,5 +1,5 @@
 import os
-import urllib.request
+import subprocess
 import fitz  # PyMuPDF
 
 pdf_url = "https://archive.org/download/christianhymnalc00chur/christianhymnalc00chur.pdf"
@@ -13,7 +13,7 @@ def main():
 
     if not os.path.exists(pdf_filename):
         print(f"Downloading {pdf_url} ...")
-        urllib.request.urlretrieve(pdf_url, pdf_filename)
+        subprocess.run(["curl", "-L", "-o", pdf_filename, pdf_url], check=True)
         print("Download complete.")
     else:
         print("PDF already exists.")
