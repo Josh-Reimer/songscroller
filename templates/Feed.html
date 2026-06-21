@@ -362,10 +362,13 @@ html, body {
   function moveTo(index, animate) {
     if (animate) {
       strip.classList.add('animating');
+      requestAnimationFrame(() => {
+        strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
+      });
     } else {
       strip.classList.remove('animating');
+      strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
     }
-    strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
   }
 
   function trimOldSlides() {
