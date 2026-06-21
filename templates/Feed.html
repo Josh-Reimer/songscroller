@@ -44,6 +44,9 @@
   .strip {
     display: flex;
     flex-direction: column;
+  }
+
+  .strip.animating {
     transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
@@ -357,9 +360,11 @@ html, body {
 
   // Move the strip so the current slide is visible
   function moveTo(index, animate) {
-    strip.style.transition = animate
-      ? 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)'
-      : 'none';
+    if (animate) {
+      strip.classList.add('animating');
+    } else {
+      strip.classList.remove('animating');
+    }
     strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
   }
 
