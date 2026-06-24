@@ -1,6 +1,17 @@
 import os
 import re
-from flask import Flask, render_template, send_from_directory, abort
+import hashlib
+from flask import Flask, render_template, send_from_directory, abort, jsonify
+
+def _get_version_hash():
+  """Generate a hash based on key files to detect updates."""
+  files_to_hash = ['sw.js', 'manifest.json', 'app.py']
+  hasher = hashlib.md5()
+  for fname in files_to_hash:
+    if os.path.exists(fname):
+      with open(fname, 'rb') as f:
+        hasher.update(f.read())
+  return hasher.hexdigest()[:8]
 
 def _images_ready():
     if not os.path.exists("img"):
@@ -27,7 +38,11 @@ def index():
                     idx = f.replace("songscroller", "").replace(".jpg", "")
                     if idx.isdigit():
                         valid_indices.append(int(idx))
-    return render_template("Feed.html", valid_indices=valid_indices)
+    return render_template("Feed.html", valid_indices=valid_indices, version=_get_version_hash())
+
+@app.route("/api/version")
+def get_version():
+    return jsonify({"version": _get_version_hash()})
 
 @app.route("/img/<filename>")
 def serve_image(filename):
@@ -41,7 +56,9 @@ def serve_manifest():
 
 @app.route("/sw.js")
 def serve_sw():
-    return send_from_directory(".", "sw.js")
+    response = send_from_directory(".", "sw.js")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 @app.route("/icon.svg")
 def serve_icon():
