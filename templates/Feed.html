@@ -380,7 +380,6 @@ html, body {
   var TOTAL_SLIDES = 0;
   let removedCount = 0;
   let current  = 0;   // which slide we're on
-  let startY   = null; // where the drag began
   let dragDelta = 0;  // how far we've dragged so far
   let isAnimating = false;
 
@@ -409,18 +408,100 @@ html, body {
     }
   }
 
-  // ── DRAG / SWIPE ──────────────────────────────────────────────────────────
+  // ── DRAG / SWIPE (POINTER EVENTS) ─────────────────────────────────────────
 
- // viewer.addEventListener('mousedown',  e => dragStart(e.clientY));
-  viewer.addEventListener('touchstart', e => dragStart(e.touches[0].clientY), { passive: true });
+  let pointerStartY = null;
+  let pointerStartTime = null;
+  let pointerLastY = null;
+  let pointerLastTime = null;
+  let isPointerActive = false;
 
- // window.addEventListener('mousemove',  e => dragMove(e.clientY));
-  window.addEventListener('touchmove',  e => dragMove(e.touches[0].clientY), { passive: true });
+  // Pointer Event Handlers
+  viewer.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return; // Only primary button
+    pointerStart(e);
+  }, { passive: true });
 
-  //window.addEventListener('mouseup',  dragEnd);
-  window.addEventListener('touchend', dragEnd);
+  document.addEventListener('pointermove', (e) => {
+    if (!isPointerActive) return;
+    pointerMove(e);
+  }, { passive: true });
 
-function randomIntFromInterval(min, max) { // min and max included 
+  document.addEventListener('pointerup', pointerEnd, false);
+  document.addEventListener('pointercancel', pointerEnd, false);
+
+  function pointerStart(e) {
+    closeSidebar();
+    isPointerActive = true;
+    pointerStartY = e.clientY;
+    pointerStartTime = Date.now();
+    pointerLastY = e.clientY;
+    pointerLastTime = pointerStartTime;
+    dragDelta = 0;
+  }
+
+  function pointerMove(e) {
+    if (pointerStartY === null) return;
+
+    const currentY = e.clientY;
+    const deltaY = currentY - pointerStartY;
+
+    // Apply resistance (60% of actual movement)
+    dragDelta = deltaY * 0.6;
+
+    // Rubber-band effect at edges
+    if (current === removedCount && dragDelta > 0) {
+      dragDelta *= 0.2;
+    }
+    if (current === TOTAL_SLIDES - 1 && dragDelta < 0) {
+      dragDelta *= 0.2;
+    }
+
+    // Update tracking for velocity calculation
+    pointerLastY = currentY;
+    pointerLastTime = Date.now();
+
+    moveTo(current, false);
+  }
+
+  function pointerEnd(e) {
+    if (pointerStartY === null) {
+      isPointerActive = false;
+      return;
+    }
+
+    // Calculate velocity
+    const timeDelta = pointerLastTime - pointerStartTime;
+    const distDelta = pointerLastY - pointerStartY;
+    const velocity = timeDelta > 0 ? distDelta / timeDelta : 0;
+
+    // Determine next slide: threshold is 60px OR velocity > 0.5 px/ms
+    const threshold = 60;
+    const velocityThreshold = 0.5;
+    const shouldMoveDown = dragDelta < -threshold || velocity < -velocityThreshold;
+    const shouldMoveUp = dragDelta > threshold || velocity > velocityThreshold;
+
+    if (shouldMoveDown && current < TOTAL_SLIDES - 1) {
+      current++;
+    } else if (shouldMoveUp && current > removedCount) {
+      current--;
+    }
+
+    // Load new slide if approaching end
+    if (current === TOTAL_SLIDES - 1) {
+      handleHymnalPages();
+    }
+
+    trimOldSlides();
+    dragDelta = 0;
+    pointerStartY = null;
+    pointerLastY = null;
+    isPointerActive = false;
+
+    moveTo(current, true);
+  }
+
+function randomIntFromInterval(min, max) { // min and max included
   return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
@@ -506,41 +587,6 @@ var RANDOM_IMAGES = preloadImages(generateRandomImageUrls(PRELOAD_QUEUE_SIZE));
 handleHymnalPages();  //set the first slide so it's not blank
 handleHymnalPages();  //load a second slide to allow scrolling
 
-  function dragStart(y) {
-    closeSidebar();
-    startY    = y;
-    dragDelta = 0;
-  }
-
-
-  function dragMove(y) {
-    if (startY === null) return;
-    dragDelta = (y - startY) * 0.6; // 0.6 = resistance factor
-
-    // Rubber-band at the edges
-    if (current === removedCount   && dragDelta > 0) dragDelta *= 0.2;
-    if (current === TOTAL_SLIDES-1 && dragDelta < 0) dragDelta *= 0.2;
-    if(current >= 3){
-        
-        
-  }
-    moveTo(current, false); // no animation while dragging
-  }
-
-  function dragEnd() {
-    if (startY === null) return;
-
-    if      (dragDelta < -60 && current < TOTAL_SLIDES - 1) current++;
-    else if (dragDelta >  60 && current > removedCount)     current--;
-
-    if (current === TOTAL_SLIDES - 1) {
-        handleHymnalPages();
-    }
-    trimOldSlides();
-    dragDelta = 0;
-    startY    = null;
-    moveTo(current, true); // animate to snapped position
-  }
 
   window.addEventListener('resize', () => {
     SLIDE_HEIGHT = viewer.clientHeight;
