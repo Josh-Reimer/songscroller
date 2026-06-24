@@ -357,15 +357,21 @@ html, body {
   let current  = 0;   // which slide we're on
   let startY   = null; // where the drag began
   let dragDelta = 0;  // how far we've dragged so far
+  let isAnimating = false;
 
   // Move the strip so the current slide is visible
   function moveTo(index, animate) {
     if (animate) {
+      isAnimating = true;
       strip.classList.add('animating');
       requestAnimationFrame(() => {
         strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
       });
+      setTimeout(() => {
+        isAnimating = false;
+      }, 505); // 500ms transition + 5ms buffer
     } else {
+      isAnimating = false;
       strip.classList.remove('animating');
       strip.style.transform = `translateY(${-(index - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
     }
@@ -512,7 +518,11 @@ handleHymnalPages();  //load a second slide to allow scrolling
 
   window.addEventListener('resize', () => {
     SLIDE_HEIGHT = viewer.clientHeight;
-    moveTo(current, false);
+    if (isAnimating) {
+      strip.style.transform = `translateY(${-(current - removedCount) * SLIDE_HEIGHT + dragDelta}px)`;
+    } else {
+      moveTo(current, false);
+    }
   });
 
   // ── KEYBOARD & SCROLL ────────────────────────────────────────────────────
